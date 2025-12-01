@@ -22,6 +22,7 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Window {
                     title: "bevy_webcam".to_string(),
+                    fit_canvas_to_parent: true,
                     ..default()
                 }.into(),
                 ..default()
