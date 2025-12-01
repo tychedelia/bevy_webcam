@@ -5,7 +5,7 @@
 to build wasm run:
 
 ```bash
-cargo build --target wasm32-unknown-unknown --release --no-default-features --features "web"
+cargo build --target wasm32-unknown-unknown --release
 wasm-bindgen --out-dir ./www/out/ --target web ./target/wasm32-unknown-unknown/release/bevy_webcam.wasm
 ```
 

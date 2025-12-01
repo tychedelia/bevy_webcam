@@ -36,7 +36,7 @@ jobs:
         run: cargo install wasm-bindgen-cli
 
       - name: build wasm artifacts
-        run: cargo build --target wasm32-unknown-unknown --release --no-default-features --features "web"
+        run: cargo build --target wasm32-unknown-unknown --release
 
       - name: generate bindings with wasm-bindgen
         run: wasm-bindgen --out-dir ./www/out/ --target web ./target/wasm32-unknown-unknown/release/bevy_webcam.wasm
