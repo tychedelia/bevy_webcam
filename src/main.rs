@@ -111,10 +111,10 @@ fn fps_update_system(
     mut query: Query<&mut TextSpan, With<FpsText>>,
 ) {
     for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                **text = format!("{value:.2}");
-            }
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
+            && let Some(value) = fps.smoothed()
+        {
+            **text = format!("{value:.2}");
         }
     }
 }

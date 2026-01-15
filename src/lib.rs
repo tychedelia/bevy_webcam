@@ -63,10 +63,10 @@ struct FrameWorker {
 #[cfg(not(target_arch = "wasm32"))]
 impl Drop for FrameWorker {
     fn drop(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            if let Err(err) = handle.join() {
-                warn!("capture worker exited with error: {:?}", err);
-            }
+        if let Some(handle) = self.handle.take()
+            && let Err(err) = handle.join()
+        {
+            warn!("capture worker exited with error: {:?}", err);
         }
     }
 }
