@@ -117,3 +117,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "bevy_webcam"
 path = "src/main.rs"
+
+[[example]]
+name = "simple"
+path = "examples/simple.rs"
