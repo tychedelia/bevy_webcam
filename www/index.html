@@ -38,64 +38,97 @@
   </head>
   <body>
     <div class="loading">Requesting webcam access…</div>
-    <video id="webcam" autoplay muted playsinline></video>
 
-    <script type="module">
-      import init, { frame_input } from './out/bevy_webcam.js';
+    <script>
+      const cameras = new Map();
 
-      async function startCamera() {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('getUserMedia() is not supported in this browser');
-        }
-        const constraints = {
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user',
-          },
-          audio: false,
-        };
+      window.request_camera = async function(device_index, width, height, framerate) {
+        if (cameras.has(device_index)) return;
 
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        const video = document.getElementById('webcam');
-        video.srcObject = stream;
-        await video.play();
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(d => d.kind === 'videoinput');
+          const device = videoDevices[device_index];
 
-        if (typeof MediaStreamTrackProcessor === 'undefined') {
-          throw new Error('MediaStreamTrackProcessor is not available in this browser');
-        }
+          const videoConstraints = device && device.deviceId
+            ? { deviceId: { exact: device.deviceId } }
+            : { facingMode: 'user' };
 
-        const [track] = stream.getVideoTracks();
-        const processor = new MediaStreamTrackProcessor({ track });
-        const reader = processor.readable.getReader();
+          if (width > 0) videoConstraints.width = { ideal: width };
+          if (height > 0) videoConstraints.height = { ideal: height };
+          if (framerate > 0) videoConstraints.frameRate = { ideal: framerate };
 
-        async function pump() {
-          const { value: frame, done } = await reader.read();
-          if (done) {
-            console.warn('Video stream ended');
+          const constraints = {
+            video: videoConstraints,
+            audio: false,
+          };
+
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          const [track] = stream.getVideoTracks();
+          cameras.set(device_index, { stream, track });
+
+          if (typeof MediaStreamTrackProcessor === 'undefined') {
+            console.error('MediaStreamTrackProcessor is not available');
             return;
           }
 
-          try {
-            const format = 'RGBA';
-            const pixelBuffer = new Uint8Array(frame.allocationSize({ format }));
-            await frame.copyTo(pixelBuffer, { format });
-            frame_input(pixelBuffer, frame.displayWidth, frame.displayHeight);
-          } catch (error) {
-            console.error('Failed to process video frame', error);
-          } finally {
-            frame.close();
+          const processor = new MediaStreamTrackProcessor({ track });
+          const reader = processor.readable.getReader();
+
+          async function pump() {
+            const { value: frame, done } = await reader.read();
+            if (done) {
+              console.warn(`Video stream ${device_index} ended`);
+              return;
+            }
+
+            try {
+              const format = 'RGBA';
+              const pixelBuffer = new Uint8Array(frame.allocationSize({ format }));
+              await frame.copyTo(pixelBuffer, { format });
+              window.__wasm_frame_input(device_index, pixelBuffer, frame.displayWidth, frame.displayHeight);
+            } catch (error) {
+              console.error('Failed to process video frame', error);
+            } finally {
+              frame.close();
+            }
+
+            requestAnimationFrame(pump);
           }
 
-          requestAnimationFrame(pump);
+          pump();
+        } catch (error) {
+          console.error(`Failed to open camera ${device_index}:`, error);
+        }
+      };
+
+      document.addEventListener('contextmenu', event => event.preventDefault());
+    </script>
+
+    <script type="module">
+      import init, { frame_input, register_device } from './out/bevy_webcam.js';
+
+      window.__wasm_frame_input = frame_input;
+
+      async function enumerateDevices() {
+        try {
+          const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          tempStream.getTracks().forEach(t => t.stop());
+        } catch (e) {
+          console.warn('Camera permission denied:', e);
+          return;
         }
 
-        pump();
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        videoDevices.forEach((device, index) => {
+          register_device(index, device.label || `Camera ${index}`);
+        });
       }
 
       async function boot() {
         await init();
-        await startCamera();
+        await enumerateDevices();
         document.querySelector('.loading')?.classList.add('hidden');
       }
 
@@ -106,9 +139,6 @@
           loading.textContent = error.message;
         }
       });
-    </script>
-    <script>
-      document.addEventListener('contextmenu', event => event.preventDefault());
     </script>
   </body>
 </html>

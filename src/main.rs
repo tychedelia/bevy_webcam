@@ -1,38 +1,30 @@
 use bevy::{
-    prelude::*,
     app::AppExit,
     color::palettes::css::GOLD,
-    diagnostic::{
-        DiagnosticsStore,
-        FrameTimeDiagnosticsPlugin,
-    },
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
 };
 
-use bevy_webcam::{
-    BevyWebcamPlugin,
-    WebcamStream,
-};
-
+use bevy_webcam::{Webcam, WebcamPlugin, WebcamStream};
 
 fn main() {
     let mut app = App::new();
 
     app.add_plugins((
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Window {
-                    title: "bevy_webcam".to_string(),
-                    fit_canvas_to_parent: true,
-                    ..default()
-                }.into(),
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Window {
+                title: "bevy_webcam".to_string(),
+                fit_canvas_to_parent: true,
                 ..default()
-            }),
-        BevyWebcamPlugin::default(),
+            }
+            .into(),
+            ..default()
+        }),
+        WebcamPlugin,
     ));
 
-    app.add_systems(Startup, setup_ui);
-
-    app.add_systems(Update, press_esc_close);
+    app.add_systems(Startup, setup);
+    app.add_systems(Update, (attach_webcam_ui, press_esc_close));
 
     app.add_plugins(FrameTimeDiagnosticsPlugin::default());
     app.add_systems(Startup, fps_display_setup);
@@ -41,66 +33,61 @@ fn main() {
     app.run();
 }
 
-
-fn setup_ui(
-    mut commands: Commands,
-    stream: Res<WebcamStream>,
-) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-
-    commands.spawn((
-        ImageNode {
-            image: stream.frame.clone(),
-            ..default()
-        },
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            ..default()
-        },
-    ));
+    commands.spawn(Webcam::default());
 }
 
+fn attach_webcam_ui(streams: Query<&WebcamStream, Added<WebcamStream>>, mut commands: Commands) {
+    for stream in &streams {
+        commands.spawn((
+            ImageNode {
+                image: stream.image.clone(),
+                ..default()
+            },
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+        ));
+    }
+}
 
-pub fn press_esc_close(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut exit: MessageWriter<AppExit>
-) {
+pub fn press_esc_close(keys: Res<ButtonInput<KeyCode>>, mut exit: MessageWriter<AppExit>) {
     if keys.just_pressed(KeyCode::Escape) {
         exit.write(AppExit::Success);
     }
 }
 
-
-fn fps_display_setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    commands.spawn((
-        Text("fps: ".to_string()),
-        TextFont {
-            font: asset_server.load("fonts/Caveat-Bold.ttf"),
-            font_size: 60.0,
-            ..Default::default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
-            ..default()
-        },
-        ZIndex(2),
-    )).with_child((
-        FpsText,
-        TextColor(Color::Srgba(GOLD)),
-        TextFont {
-            font: asset_server.load("fonts/Caveat-Bold.ttf"),
-            font_size: 60.0,
-            ..Default::default()
-        },
-        TextSpan::default(),
-    ));
+fn fps_display_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn((
+            Text("fps: ".to_string()),
+            TextFont {
+                font: asset_server.load("fonts/Caveat-Bold.ttf"),
+                font_size: 60.0,
+                ..Default::default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(5.0),
+                left: Val::Px(15.0),
+                ..default()
+            },
+            ZIndex(2),
+        ))
+        .with_child((
+            FpsText,
+            TextColor(Color::Srgba(GOLD)),
+            TextFont {
+                font: asset_server.load("fonts/Caveat-Bold.ttf"),
+                font_size: 60.0,
+                ..Default::default()
+            },
+            TextSpan::default(),
+        ));
 }
 
 #[derive(Component)]
